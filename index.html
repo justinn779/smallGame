@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>Vue 字母運算遊戲</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .letter { margin-bottom: 5px; }
+        .correct { color: green; font-weight: bold; }
+        .wrong { color: red; font-weight: bold; }
+        .box { margin: 10px 0; }
+        /* 全站通用字體大小調整 */
+        html {
+            font-size: clamp(12px, 5.5vw, 50px);
+        }
+
+
+
+    </style>
+</head>
+<body>
+<div id="app">
+    <h2>🔢 數字運算挑戰</h2>
+
+    <h3>字母金字塔：</h3>
+    <div v-for="(row, idx) in getLetterPyramid()" :key="idx" style="display: flex; justify-content: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;">
+        <div v-for="l in row" :key="l" style="
+              background: #f0f0f0;
+              border-radius: 8px;
+              padding: 8px;
+              text-align: center;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              flex-grow: 1;
+              flex-basis: 60px;
+              min-width: 60px;
+              max-width: 150px;
+            "
+        >
+            <div>【{{ l }}】</div>
+            <div><strong>{{ letterData[l]?.op }} {{ letterData[l]?.num }}</strong></div>
+        </div>
+    </div>
+
+
+
+    <p>🎯 目標數字：<strong>{{ target }}</strong></p>
+
+    <label>請輸入答案：</label>
+    <input v-model="userInput" maxlength="3" style="
+            width: 40vw;
+            height: 10vw;
+            "
+    />
+    <button @click="checkUserAnswer" style="width: 15vw;height: 10vw;font-size: clamp(12px, 5.5vw, 30px);">✅ 確認</button>
+    <p :class="checkResultClass">{{ checkResult }}</p>
+
+    <details>
+        <summary>✅ 正確答案</summary>
+        <h4>共 {{ correctAnswers.length }} 組<div>{{ correctAnswers.join(', ') }}</div></h4>
+
+    </details>
+
+    <br>
+    <div class="box">
+        <label>數字範圍：{{ numberMin }} ~ {{ numberMax }}</label><br>
+        <input type="range" v-model.number="numberMin" min="1" max="20" />
+        <input type="range" v-model.number="numberMax" min="1" max="20" />
+    </div>
+
+    <div class="box">
+        <label>目標值範圍：{{ targetMin }} ~ {{ targetMax }}</label><br>
+        <input type="range" v-model.number="targetMin" min="1" max="20" />
+        <input type="range" v-model.number="targetMax" min="1" max="20" />
+    </div>
+
+    <button @click="generateAll">🔄 重新產生題目</button>
+</div>
+
+<script>
+    const { createApp, reactive, watch } = Vue;
+
+    createApp({
+        setup() {
+            const letters = "ABCDEFGHIJ".split('');
+            const operators = ['+', '-', 'x', '÷'];
+
+            const state = reactive({
+                numberMin: 1,
+                numberMax: 15,
+                targetMin: 1,
+                targetMax: 20,
+                target: 1,
+                letterData: {},
+                correctAnswers: [],
+                userInput: '',
+                checkResult: '',
+                checkResultClass: ''
+            });
+
+            function randInt(min, max) {
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+            function generateLetters() {
+                const usedNumbers = new Set();
+
+                letters.forEach(l => {
+                    let num, tries = 0;
+
+                    // 抽數字直到沒重複或最多嘗試100次
+                    do {
+                        num = randInt(state.numberMin, state.numberMax);
+                        tries++;
+                    } while (usedNumbers.has(num) && tries < 100);
+
+                    usedNumbers.add(num);
+
+                    state.letterData[l] = {
+                        op: operators[randInt(0, 3)],
+                        num
+                    };
+                });
+                state.target = randInt(state.targetMin, state.targetMax)
+            }
+
+
+            function evaluateCombo(combo) {
+                const [a, b, c] = combo.split('');
+
+                const valA = state.letterData[a].num;
+                const valB = state.letterData[b].num;
+                const valC = state.letterData[c].num;
+
+                const op1 = state.letterData[b].op;
+                const op2 = state.letterData[c].op;
+
+                const expr = `${valA} ${op1} ${valB} ${op2} ${valC}`;
+
+                try {
+                    const result = Function(`return (${expr})`)();
+                    return Math.round(result * 1000) / 1000;
+                } catch {
+                    return NaN;
+                }
+            }
+
+            function getAllCombinations() {
+                const results = [];
+                for (let i = 0; i < letters.length; i++) {
+                    for (let j = 0; j < letters.length; j++) {
+                        if (j === i) continue;
+                        for (let k = 0; k < letters.length; k++) {
+                            if (k === i || k === j) continue;
+                            const combo = letters[i] + letters[j] + letters[k];
+                            const val = evaluateCombo(combo);
+                            if (val === state.target) {
+                                results.push(combo);
+                            }
+                        }
+                    }
+                }
+                state.correctAnswers = results;
+            }
+
+            function generateAll() {
+                do {
+                    generateLetters();
+                    getAllCombinations();
+                } while (state.correctAnswers.length === 0);
+                state.checkResult = '';
+            }
+
+            function getLetterPyramid() {
+                const levels = [];
+                let index = 0;
+                for (let row = 1; index < letters.length; row++) {
+                    const level = [];
+                    for (let i = 0; i < row && index < letters.length; i++) {
+                        level.push(letters[index]);
+                        index++;
+                    }
+                    levels.push(level);
+                }
+                return levels;
+            }
+
+            function checkUserAnswer() {
+                const input = state.userInput.toUpperCase().trim();
+                if (!/^[A-J]{3}$/.test(input)) {
+                    state.checkResult = "請輸入三個 A~J 的字母！";
+                    state.checkResultClass = "wrong";
+                    return;
+                }
+                if (state.correctAnswers.includes(input)) {
+                    state.checkResult = `✅ 正確！${input} 可算出 ${state.target}`;
+                    state.checkResultClass = "correct";
+                } else {
+                    state.checkResult = `❌ 錯誤，${input} 無法算出 ${state.target}`;
+                    state.checkResultClass = "wrong";
+                }
+            }
+
+            watch(() => [state.numberMin, state.numberMax, state.target], generateAll);
+
+            generateAll();
+
+            return {
+                ...Vue.toRefs(state),
+                letters,
+                generateAll,
+                getLetterPyramid,
+                checkUserAnswer
+            };
+        }
+    }).mount("#app");
+</script>
+</body>
+</html>
