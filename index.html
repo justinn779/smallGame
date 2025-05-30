@@ -47,7 +47,7 @@
     <p>🎯 目標數字：<strong>{{ target }}</strong></p>
 
     <label>請輸入答案：</label>
-    <input v-model="userInput" maxlength="3" style="width: 40vw;height: 10vw;font-size: clamp(12px, 5.5vw, 30px);"/>
+    <input v-model="userInput" maxlength="3" style="width: 40vw;height: 10vw;font-size: clamp(12px, 5.5vw, 50px);"/>
     <button @click="checkUserAnswer" style="width: 15vw;height: 10vw;font-size: clamp(12px, 5.5vw, 30px);">✅ 確認</button>
     <p :class="checkResultClass">{{ checkResult }}</p>
 
